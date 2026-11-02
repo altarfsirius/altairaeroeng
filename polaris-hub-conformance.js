@@ -20,7 +20,7 @@ async function call(method, path, bodyObj, o = {}) {
   let j = null; try { j = await r.json(); } catch (e) {}
   return { status: r.status, j, ts, nonce, body };
 }
-const ev = (o) => ({ entity: 'activity', op: 'upsert', ref: 'conf-' + RUN, level: 1, data: { title: 'Conformance test', priority: 'medium', status: 'not_started', progress: 0 }, ft: {}, updated_at: new Date().toISOString(), ...o });
+const ev = (o) => ({ entity: 'activity', op: 'upsert', ref: 'conf-' + RUN, level: 1, data: { title: 'Conformance test', priority: 'medium', status: 'not_started', progress: 0, life_area: 'Freelance' }, ft: {}, updated_at: new Date().toISOString(), ...o });
 const env1 = (events) => ({ contract: 'polaris-hub/1', link_id: link, sent_at: new Date().toISOString(), events });
 const RUN = crypto.randomBytes(4).toString('hex'), TX = '2000-01-01T00:00:00.000000Z';
 (async () => {
@@ -51,6 +51,8 @@ const RUN = crypto.randomBytes(4).toString('hex'), TX = '2000-01-01T00:00:00.000
   r = await call('POST', '/events', env1([ev({ ref: 'conf-bad2-' + RUN, data: { title: 'x', progress: 150 } })])); ok(r.j && r.j.results[0].result === 'rejected', 'progress 150 → rejected', r.j);
   r = await call('POST', '/events', env1([ev({ ref: 'conf-bad3-' + RUN, data: { title: 'x', planned_start: '31/12/2026' } })])); ok(r.j && r.j.results[0].result === 'rejected', 'a date that is not YYYY-MM-DD → rejected', r.j);
   r = await call('POST', '/events', env1([ev({ ref: 'conf-sub-' + RUN, level: 2, data: { title: 'child', parent_ref: 'conf-does-not-exist' } })])); ok(r.j && ['parked', 'rejected'].includes(r.j.results[0].result), 'a sub-activity whose parent is unknown → parked (not a crash)', r.j);
+  // Life Area: only 2nd Work, Freelance and Project may reach ALTAIR; every other area stays hidden
+  r = await call('POST', '/events', env1([ev({ ref: 'conf-hidden-' + RUN, data: { title: 'x', life_area: 'Family' } })])); ok(r.j && r.j.results[0].result === 'rejected', 'an Activity in a hidden Life Area (Family) → rejected and not stored', r.j);
   // 4. pull
   r = await call('GET', '/changes?since=1970-01-01T00:00:00Z&limit=50'); ok(r.status === 200 && r.j && r.j.contract === 'polaris-hub/1' && Array.isArray(r.j.events) && !Number.isNaN(Date.parse(r.j.cursor)), 'GET /changes → 200 with events and an ISO cursor', r.status);
   const e0 = r.j && r.j.events && r.j.events[0];
